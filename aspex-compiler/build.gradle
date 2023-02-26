@@ -1,0 +1,58 @@
+apply plugin: 'java-library'
+apply plugin: 'maven-publish'
+apply plugin: 'antlr'
+
+group = 'io.github.sainttheana'
+version = '1.0.0'
+
+sourceCompatibility = 1.8 // java 8
+targetCompatibility = 1.8
+
+repositories {
+  mavenCentral()
+}
+
+
+java {
+	withSourcesJar()
+	withJavadocJar()
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+		from components.java
+        }
+    }
+}
+
+configurations {
+    compile {
+        extendsFrom = extendsFrom.findAll { it != configurations.antlr }
+    }
+}
+
+
+generateGrammarSource {
+    maxHeapSize = "64m"
+	arguments += ["-visitor", "-no-listener"]
+    // Keep a copy of generated sources
+    doLast {
+        println "Copying generated grammar lexer/parser files to main directory."
+        copy {
+            from ("${buildDir}/generated-src/antlr/main"){
+				include '**/*.java'
+			}
+            into "src/main/java"
+        }
+		project.delete(files("${buildDir}/generated-src/antlr/main"))
+    }
+}
+clean.doLast {
+    file('generated-src').deleteDir()
+}
+
+dependencies {
+    antlr "org.antlr:antlr4:4.7.1"
+	implementation "org.antlr:antlr4-runtime:4.7.1"
+}
