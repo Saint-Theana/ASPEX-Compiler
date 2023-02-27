@@ -34,7 +34,7 @@ public class ProtoMapper
 		return protoMap.get(fileName);
 	}
 
-	public String findAllClass(String fileName, List<String> importedFiles, String type)
+	public String findInAllClasses(String fileName, List<String> importedFiles, String type)
 	{
 		for(String inerClasses:protoMap.get(fileName).inerClasses){
 			if(inerClasses.equals(type)){
@@ -51,7 +51,7 @@ public class ProtoMapper
 		return null;
 	}
 
-	public String findAllEnum(String fileName, List<String> importedFiles, String type)
+	public String findInAllEnums(String fileName, List<String> importedFiles, String type)
 	{
 		for(String enumClass:protoMap.get(fileName).enumClasses){
 			if(enumClass.equals(type)){

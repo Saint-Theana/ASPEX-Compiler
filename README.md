@@ -16,20 +16,18 @@ lallprojects {
 }
 	
 dependencies {
-	implementation 'com.github.Saint-Theana:ASPEX-Compiler:1.0.0'
+	implementation 'com.github.Saint-Theana:ASPEX-Compiler:1.0.1'
 }
 ```
 
 # implemented feature:
  - [x] 1.basic type transform
- - [x] 1.import adapt
- - [ ] 2.enum transform
+ - [x] 2.map type transform
+ - [x] 3.import adapt
+ - [x] 4.enum transform
 
 
 # How to use
-
-## 1: 
-
 ```java
     new ProtobufCompiler(your input proto sorce code directory).compile(path to output java class);
 ```

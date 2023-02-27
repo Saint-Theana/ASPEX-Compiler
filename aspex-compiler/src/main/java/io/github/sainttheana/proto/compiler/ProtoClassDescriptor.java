@@ -26,7 +26,7 @@ public class ProtoClassDescriptor
 {
 	public List<ProtoClassDescriptor> inerClasses=new ArrayList<ProtoClassDescriptor>();
 	
-	public List<String> inerEnums=new ArrayList<String>();
+	public List<ProtoEnumDescriptor> inerEnums=new ArrayList<ProtoEnumDescriptor>();
 	
 	public List<ProtoFieldDescriptor> fields=new ArrayList<ProtoFieldDescriptor>();
 	
@@ -34,7 +34,12 @@ public class ProtoClassDescriptor
 
 	public boolean hasInerEnum(String type)
 	{
-		return inerEnums.contains(type);
+		for(ProtoEnumDescriptor t:inerEnums){
+			if(t.name.equals(type)){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	

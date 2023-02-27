@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.io.IOException;
 import java.nio.file.Files;
+import io.github.sainttheana.proto.compiler.Protobuf3Parser.EnumDefContext;
+import java.util.Iterator;
 
 public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 {
@@ -39,6 +41,9 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 	private List<ProtoClassDescriptor> inerClasses=new ArrayList<ProtoClassDescriptor>();
 
 
+	private List<ProtoEnumDescriptor> inerEnums=new ArrayList<ProtoEnumDescriptor>();
+
+	
 	private List<String> importedFiles=new ArrayList<String>();
 
 	public ProtobufCompilerVisitor(ProtoMapper mapper, String fileName)
@@ -78,13 +83,19 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 		builder.append("public class " + rootClassName + " {");
 		builder.append("\n");
 		builder.increaseIdent(1);
-		
+		for(ProtoEnumDescriptor inerEnum:inerEnums){
+			writeEnum(inerEnum,builder);
+		}
 		for (ProtoClassDescriptor protoClassDescriptor:inerClasses)
 		{
+			
 			if (protoClassDescriptor.name.equals(rootClassName))
 			{
 				for(ProtoClassDescriptor inerClass:protoClassDescriptor.inerClasses){
 					writeClass(inerClass,builder);
+				}
+				for(ProtoEnumDescriptor inerEnum:protoClassDescriptor.inerEnums){
+					writeEnum(inerEnum,builder);
 				}
 				writeFields(protoClassDescriptor,builder);
 			}else
@@ -114,6 +125,35 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 
 	}
 
+	private void writeEnum(ProtoEnumDescriptor inerEnum, CodeBuilder builder)
+	{
+		builder.insertIdent();
+		builder.append("public enum " + inerEnum.name + " {");
+		builder.increaseIdent(1);
+		builder.append("\n");
+		Iterator<ProtoEnumFieldDescriptor> it=inerEnum.fields.iterator();
+		while(it.hasNext()){
+			ProtoEnumFieldDescriptor field=it.next();
+			builder.insertIdent();
+			builder.append("@Tag(tag="+field.value);
+			builder.append(")");
+			builder.append(" ");
+			builder.append(checkFieldName(field.name));
+			builder.append(" ");
+			if(it.hasNext()){
+				builder.append(",");
+			}else{
+				builder.append(";");
+			}
+			builder.append("\n");
+		}
+		builder.decreaseIdent(1);
+		builder.insertIdent();
+		builder.append("}");
+		builder.append("\n");
+		builder.append("\n");
+	}
+
 	private void writeClass(ProtoClassDescriptor protoClassDescriptor, CodeBuilder builder)
 	{
 		builder.insertIdent();
@@ -122,6 +162,9 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 		builder.append("\n");
 		for(ProtoClassDescriptor inerClass:protoClassDescriptor.inerClasses){
 			writeClass(inerClass,builder);
+		}
+		for(ProtoEnumDescriptor inerEnum:protoClassDescriptor.inerEnums){
+			writeEnum(inerEnum,builder);
 		}
 		writeFields(protoClassDescriptor,builder);
 		
@@ -187,7 +230,19 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			.replaceAll("^int$","$0_")
 			.replaceAll("^float$","$0_")
 			.replaceAll("^double$","$0_")
-			.replaceAll("^package$","$0_");
+			.replaceAll("^char$","$0_")
+			.replaceAll("^short$","$0_")
+			.replaceAll("^byte$","$0_")
+			.replaceAll("^package$","$0_")
+			.replaceAll("^extends$","$0_")
+			.replaceAll("^case$","$0_")
+			.replaceAll("^default$","$0_")
+			.replaceAll("^throws$","$0_")
+			.replaceAll("^throw$","$0_")
+			.replaceAll("^try$","$0_")
+			.replaceAll("^catch$","$0_")
+			.replaceAll("^synchronized$","$0_")
+			;
 			
 	}
 
@@ -221,17 +276,16 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 				{
 					ProtoClassDescriptor inerClass=this.visitMessageDef(top.messageDef());
 					inerClasses.add(inerClass);
-
 				}
 				else if (top.extendDef() != null)
 				{
-
 					//ignoew all extend for now
 					//mapper.registerInerClass(fileName,top.extendDef().messageName().getText());
 				}
 				else if (top.enumDef() != null)
 				{
-					
+					ProtoEnumDescriptor protoEnumDescriptor = this.visitEnumDef(top.enumDef());
+					inerEnums.add(protoEnumDescriptor);
 					//ignoew all enum for now
 				}
 				else if (top.serviceDef() != null)
@@ -243,6 +297,29 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 		return null;
 	}
 
+	public ProtoEnumDescriptor visitEnumDef(Protobuf3Parser.EnumDefContext ctx)
+	{
+		ProtoEnumDescriptor protoEnumDescriptor =new ProtoEnumDescriptor();
+		protoEnumDescriptor.name = ctx.enumName().getText();
+		for (Protobuf3Parser.EnumElementContext element:ctx.enumBody().enumElement())
+		{
+			if(element.enumField()!=null){
+				Protobuf3Parser.EnumFieldContext field=element.enumField();
+				ProtoEnumFieldDescriptor protoEnumFieldDescriptor = new ProtoEnumFieldDescriptor();
+				protoEnumFieldDescriptor.name=field.ident().getText();
+				if(field.MINUS()!=null){
+					protoEnumFieldDescriptor.value="-"+field.intLit().getText();
+				}else{
+				    protoEnumFieldDescriptor.value=field.intLit().getText();
+				}
+				protoEnumDescriptor.fields.add(protoEnumFieldDescriptor);
+			}
+		}
+		return protoEnumDescriptor;
+	}
+
+	
+	
 
 	public ProtoClassDescriptor visitMessageDef(Protobuf3Parser.MessageDefContext ctx)
 	{
@@ -281,7 +358,9 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			}
 			else if (element.enumDef() != null)
 			{
-				classDescriptor.inerEnums.add(element.enumDef().enumName().getText());
+				ProtoEnumDescriptor inerEnum=visitEnumDef(element.enumDef());
+				//classDescriptor.inerClasses.add(inerClass);
+				classDescriptor.inerEnums.add(inerEnum);
 			}
 			else if (element.oneof() != null)
 			{
@@ -389,14 +468,14 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 				}break;
 			default:{
 				   // System.out.println(type);
-					String enumType=mapper.findAllEnum(fileName, importedFiles, type);
+					String enumType=mapper.findInAllEnums(fileName, importedFiles, type);
 					if (enumType != null)
 					{
 						//treat it like uint;
 						protoFieldDescriptor.type = "Integer";
 						break;
 					}
-					String classType=mapper.findAllClass(fileName, importedFiles, type);
+					String classType=mapper.findInAllClasses(fileName, importedFiles, type);
 					if (classType != null)
 					{
 						protoFieldDescriptor.type = type;
