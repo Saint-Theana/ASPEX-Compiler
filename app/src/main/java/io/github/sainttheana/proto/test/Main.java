@@ -5,6 +5,6 @@ public class Main
 {
 	public static void main(String[] args){
 		System.out.println("hello world");
-		new ProtobufCompiler("proto").compile("proto_out");
+		new ProtobufCompiler("/sdcard/proto").compile("/sdcard/proto_out");
 	}
 }

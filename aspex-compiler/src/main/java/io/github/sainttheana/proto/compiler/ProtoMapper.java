@@ -34,51 +34,62 @@ public class ProtoMapper
 		return protoMap.get(fileName);
 	}
 
-	public String findInAllClasses(String fileName, List<String> importedFiles, String type)
+	public boolean existInClasses(String className,String fileName, List<String> importedFiles, String type)
 	{
-		for(String inerClasses:protoMap.get(fileName).inerClasses){
+		for(ProtoClassDescriptor inerClasses:protoMap.get(fileName).inerClasses){
+			if(inerClasses.name.equals(className)){
+				if(inerClasses.hasInerClass(type)){
+					return true;
+				}else if(inerClasses.hasInerEnum(type)){
+					return true;
+				}
+			}
 			if(inerClasses.equals(type)){
-				return type;
+				return true;
 			}
 		}
 		for(String file:importedFiles){
-			for(String inerClasses:protoMap.get(file).inerClasses){
-				if(inerClasses.equals(type)){
-					return type;
+			for(ProtoClassDescriptor inerClasses:protoMap.get(file).inerClasses){
+				if(inerClasses.name.equals(type)){
+					return true;
 				}
 			}
 		}
-		return null;
+		return false;
 	}
 
-	public String findInAllEnums(String fileName, List<String> importedFiles, String type)
+	public boolean existInEnums(String className,String fileName, List<String> importedFiles, String type)
 	{
-		for(String enumClass:protoMap.get(fileName).enumClasses){
-			if(enumClass.equals(type)){
-				return type;
+		for(ProtoEnumDescriptor enumClass:protoMap.get(fileName).inerEnums){
+			if(enumClass.name.equals(type)){
+				return true;
 			}
 		}
 		for(String file:importedFiles){
 			//System.out.println(file);
-			for(String enumClass:protoMap.get(file).enumClasses){
+			for(ProtoEnumDescriptor enumClass:protoMap.get(file).inerEnums){
 				//System.out.println("fff "+enumClass);
-				if(enumClass.equals(type)){
-					return type;
+				if(enumClass.name.equals(type)){
+					return true;
 				}
 			}
 		}
-		return null;
+		return false;
 	}
 
-	public void registerEnumClass(String fileName, String enumClassName)
+	
+	
+	public void registerInerEnum(String fileName, ProtoEnumDescriptor enumClassName)
 	{
 		//System.out.println(enumClassName);
 		if(protoMap.containsKey(fileName)){
-			protoMap.get(fileName).enumClasses.add(enumClassName);
+			protoMap.get(fileName).inerEnums.add(enumClassName);
 		}else{
 			throw new RuntimeException("proto file "+fileName+" not registered");
 		}
 	}
+	
+	
 
 	public void registerPackage(String fileName, String packageName)
 	{
@@ -89,7 +100,9 @@ public class ProtoMapper
 		}
 	}
 	
-	public void registerInerClass(String fileName,String inerClassName){
+	
+	
+	public void registerInerClass(String fileName,ProtoClassDescriptor inerClassName){
 		if(protoMap.containsKey(fileName)){
 			protoMap.get(fileName).inerClasses.add(inerClassName);
 		}else{

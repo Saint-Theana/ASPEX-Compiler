@@ -30,9 +30,9 @@ public class ProtoDescriptor
 	
 	public String packageName;
 	
-	public List<String> inerClasses =new ArrayList<String>();
+	public List<ProtoClassDescriptor> inerClasses =new ArrayList<ProtoClassDescriptor>();
 	
-	public List<String> enumClasses =new ArrayList<String>();
+	public List<ProtoEnumDescriptor> inerEnums =new ArrayList<ProtoEnumDescriptor>();
 	
 	//public List<String> inerClasses =new ArrayList<>();
 	

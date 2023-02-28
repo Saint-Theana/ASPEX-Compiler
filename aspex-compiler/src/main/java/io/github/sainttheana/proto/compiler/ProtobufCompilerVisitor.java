@@ -19,12 +19,13 @@
  */
  package io.github.sainttheana.proto.compiler;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 import java.io.IOException;
 import java.nio.file.Files;
-import io.github.sainttheana.proto.compiler.Protobuf3Parser.EnumDefContext;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 {
@@ -84,7 +85,32 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 		builder.append("\n");
 		builder.increaseIdent(1);
 		for(ProtoEnumDescriptor inerEnum:inerEnums){
-			writeEnum(inerEnum,builder);
+			if (inerEnum.name.equals(rootClassName))
+			{
+				//root class shold be replaced with enum
+				builder.replace("public class ","public enum ");
+				Iterator<ProtoEnumFieldDescriptor> it=inerEnum.fields.iterator();
+				while(it.hasNext()){
+					builder.insertIdent();
+					ProtoEnumFieldDescriptor field=it.next();
+					builder.insertIdent();
+					builder.append("@Tag(tag="+field.value);
+					builder.append(")");
+					builder.append(" ");
+					builder.append(checkFieldName(field.name));
+					builder.append(" ");
+					if(it.hasNext()){
+						builder.append(",");
+					}else{
+						builder.append(";");
+					}
+					builder.append("\n");
+				}
+			}
+			else
+			{
+				writeEnum(inerEnum,builder);
+			}
 		}
 		for (ProtoClassDescriptor protoClassDescriptor:inerClasses)
 		{
@@ -167,13 +193,11 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			writeEnum(inerEnum,builder);
 		}
 		writeFields(protoClassDescriptor,builder);
-		
 		builder.decreaseIdent(1);
 		builder.insertIdent();
 		builder.append("}");
 		builder.append("\n");
 		builder.append("\n");
-		
 	}
 
 	private void writeFields(ProtoClassDescriptor protoClassDescriptor, CodeBuilder builder)
@@ -215,10 +239,10 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			}
 		}
 	}
-
+	
 	private String checkFieldName(String name)
 	{
-		return name.replaceAll("^abstract$","$0_").
+		name= name.replaceAll("^abstract$","$0_").
 		replaceAll("^switch$","$0_")
 			.replaceAll("^public$","$0_")
 			.replaceAll("^class$","$0_")
@@ -241,9 +265,17 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			.replaceAll("^throw$","$0_")
 			.replaceAll("^try$","$0_")
 			.replaceAll("^catch$","$0_")
-			.replaceAll("^synchronized$","$0_")
-			;
+			.replaceAll("^synchronized$","$0_");
 			
+		Pattern pattern = Pattern.compile("_[a-z]");
+		Matcher matcher = pattern.matcher(name);
+		
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			matcher.appendReplacement(sb, matcher.group().toUpperCase().replace("_",""));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
 	}
 
 	private String getRootClassName(String fileName)
@@ -268,6 +300,20 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 				importedFiles.add(importFileName);
 			}
 		}
+		if(ctx.optionStatement().size()>0){
+			for (Protobuf3Parser.OptionStatementContext optionStatement:ctx.optionStatement())
+			{
+				if(optionStatement.optionName().getText().equals("java_package")){
+					if(optionStatement.constant().fullIdent()!=null){
+						packageName=optionStatement.constant().fullIdent().getText();
+					}else if(optionStatement.constant().strLit()!=null){
+						packageName=optionStatement.constant().strLit().getText();
+						packageName=packageName.substring(1,packageName.length()-1);
+					}
+				}
+			}
+		}
+		
 		if (ctx.topLevelDef().size() > 0)
 		{
 			for (Protobuf3Parser.TopLevelDefContext top:ctx.topLevelDef())
@@ -317,10 +363,9 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 		}
 		return protoEnumDescriptor;
 	}
-
 	
 	
-
+	
 	public ProtoClassDescriptor visitMessageDef(Protobuf3Parser.MessageDefContext ctx)
 	{
 		ProtoClassDescriptor classDescriptor =new ProtoClassDescriptor();
@@ -381,7 +426,7 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 			else if (element.mapField() != null)
 			{
 				ProtoClassDescriptor mapTemplate =new ProtoClassDescriptor();
-				mapTemplate.name = "Map_" + element.mapField().mapName().getText();
+				mapTemplate.name = checkFieldName("Map_" + element.mapField().mapName().getText());
 				ProtoFieldDescriptor key=new ProtoFieldDescriptor();
 				key.tag = "1";
 				key.name = "key";
@@ -394,7 +439,7 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 				mapTemplate.fields.add(value);
 				classDescriptor.inerClasses.add(mapTemplate);
 				ProtoFieldDescriptor protoFieldDescriptor=new ProtoFieldDescriptor();
-				String type= "Map_" + element.mapField().mapName().getText();
+				String type= checkFieldName("Map_" + element.mapField().mapName().getText());
 				defineFieldType(classDescriptor, protoFieldDescriptor, type);
 				protoFieldDescriptor.tag =  element.mapField().fieldNumber().getText();
 				protoFieldDescriptor.repeated=true;
@@ -468,15 +513,15 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 				}break;
 			default:{
 				   // System.out.println(type);
-					String enumType=mapper.findInAllEnums(fileName, importedFiles, type);
-					if (enumType != null)
+			
+					if (mapper.existInEnums(classDescriptor.name,fileName, importedFiles, type))
 					{
 						//treat it like uint;
 						protoFieldDescriptor.type = "Integer";
 						break;
 					}
-					String classType=mapper.findInAllClasses(fileName, importedFiles, type);
-					if (classType != null)
+					
+					if (mapper.existInClasses(classDescriptor.name,fileName, importedFiles, type))
 					{
 						protoFieldDescriptor.type = type;
 						break;
@@ -487,7 +532,7 @@ public class ProtobufCompilerVisitor extends Protobuf3BaseVisitor<Object>
 						break;
 					}
 					if(classDescriptor.hasInerEnum(type)){
-						protoFieldDescriptor.type = "Integer";
+						protoFieldDescriptor.type = type;
 						break;
 					}
 					throw new RuntimeException("in file " + fileName + " type " + type + " not found.");

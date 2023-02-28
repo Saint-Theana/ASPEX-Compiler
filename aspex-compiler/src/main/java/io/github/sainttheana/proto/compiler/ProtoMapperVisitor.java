@@ -17,8 +17,10 @@
  Please contact Saint-Theana by email the.winter.will.come@gmail.com if you need
  additional information or have any questions
  */
- package io.github.sainttheana.proto.compiler;
+package io.github.sainttheana.proto.compiler;
 import io.github.sainttheana.proto.compiler.Protobuf3Parser.ProtoContext;
+import io.github.sainttheana.proto.compiler.Protobuf3Parser.MessageDefContext;
+import io.github.sainttheana.proto.compiler.Protobuf3Parser.EnumDefContext;
 
 public class ProtoMapperVisitor extends Protobuf3BaseVisitor
 {
@@ -40,16 +42,35 @@ public class ProtoMapperVisitor extends Protobuf3BaseVisitor
 			//packege=);
 			mapper.registerPackage(fileName,ctx.packageStatement().fullIdent().getText());
 		}
+		if(ctx.optionStatement().size()>0){
+			for (Protobuf3Parser.OptionStatementContext optionStatement:ctx.optionStatement())
+			{
+				if(optionStatement.optionName().getText().equals("java_package")){
+					if(optionStatement.constant().fullIdent()!=null){
+						mapper.registerPackage(fileName,optionStatement.constant().fullIdent().getText());
+						
+					}else if(optionStatement.constant().strLit()!=null){
+						String packageName=optionStatement.constant().strLit().getText();
+						mapper.registerPackage(fileName,packageName.substring(1,packageName.length()-1));
+					}
+				}
+			}
+		}
+		
 		//if(ctx.topLevelDef().size()!=0){
 		for(Protobuf3Parser.TopLevelDefContext top:ctx.topLevelDef()){
 				if(top.messageDef()!=null){
 					//System.out.println("gggg");
-					mapper.registerInerClass(fileName,top.messageDef().messageName().getText());
+					ProtoClassDescriptor inerClass=visitMessageDef(top.messageDef());
+					mapper.registerInerClass(fileName,inerClass);
+					//mapper.registerInerClass(fileName,top.messageDef().messageName().getText());
 				}else if(top.extendDef()!=null){
 					//ignoew all extend for now
 					//mapper.registerInerClass(fileName,top.extendDef().messageName().getText());
 				}else if(top.enumDef()!=null){
-					mapper.registerEnumClass(fileName,top.enumDef().enumName().getText());
+					ProtoEnumDescriptor inerEnum=visitEnumDef(top.enumDef());
+					mapper.registerInerEnum(fileName,inerEnum);
+					
 					//ignoew all enum for now
 				}else if(top.serviceDef()!=null){
 					//ignoew all service for now
@@ -58,5 +79,43 @@ public class ProtoMapperVisitor extends Protobuf3BaseVisitor
 		//}
 		return super.visitProto(ctx);
 	}
+
+	
+	public ProtoClassDescriptor visitMessageDef(Protobuf3Parser.MessageDefContext ctx)
+	{
+		ProtoClassDescriptor classDescriptor =new ProtoClassDescriptor();
+		classDescriptor.name = ctx.messageName().getText();
+
+		for (Protobuf3Parser.MessageElementContext element:ctx.messageBody().messageElement())
+		{
+			if (element.messageDef() != null)
+			{
+				ProtoClassDescriptor inerClass=visitMessageDef(element.messageDef());
+				classDescriptor.inerClasses.add(inerClass);
+			}
+			else if (element.enumDef() != null)
+			{
+				ProtoEnumDescriptor inerEnum=visitEnumDef(element.enumDef());
+				//classDescriptor.inerClasses.add(inerClass);
+				classDescriptor.inerEnums.add(inerEnum);
+			}
+			
+		}
+		return classDescriptor;
+	}
+
+	@Override
+	public ProtoEnumDescriptor visitEnumDef(Protobuf3Parser.EnumDefContext ctx)
+	{
+		ProtoEnumDescriptor protoEnumDescriptor =new ProtoEnumDescriptor();
+		protoEnumDescriptor.name = ctx.enumName().getText();
+	    return protoEnumDescriptor;
+	}
+	
+	
+	
+	
+	
+	
 	
 }

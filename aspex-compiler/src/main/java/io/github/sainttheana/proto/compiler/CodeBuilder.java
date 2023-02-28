@@ -29,6 +29,13 @@ public class CodeBuilder {
 		ident = 0;
 	}
 
+	public void replace(String p0, String p1)
+	{
+		String tmp=sb.toString().replace(p0,p1);
+		sb=new StringBuilder();
+		sb.append(tmp);
+	}
+
 	public void newLine() {
 		sb.append("\n");
 	}

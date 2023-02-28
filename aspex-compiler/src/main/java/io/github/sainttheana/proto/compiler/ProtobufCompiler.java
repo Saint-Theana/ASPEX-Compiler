@@ -141,5 +141,4 @@ public class ProtobufCompiler
 			e.printStackTrace();
 		}
 	}
-	
 }
